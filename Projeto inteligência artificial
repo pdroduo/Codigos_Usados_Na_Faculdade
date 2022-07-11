@@ -1,0 +1,47 @@
+import pandas as pd
+import numpy as np
+import seaborn as sns
+
+from datetime import datetime 
+from sklearn.model_selection import train_test_split
+
+
+URL="https://raw.githubusercontent.com/profviniciusheltai/Aula_IA/main/Projeto03.csv"
+
+dados = pd.read_csv(URL)
+dados.head()
+
+a_renomear = {
+    'expected_hours' : "Horas_Esperadas",
+    "price" : "preco",
+    "unfinished" : "nao_finalizada"
+}
+
+dados = dados.rename(columns = a_renomear)
+dados.head()
+
+troca = {
+    0:1,
+    1:0
+}
+
+dados["finalizado"] = dados.nao_finalizada.map(troca)
+dados.head()
+
+
+sns.scatterplot(x = "Horas_Esperadas", y = "preco", data = dados)
+
+sns.relplot(x = "Horas_Esperadas", y = "preco", col = "finalizado" ,data = dados)
+
+sns.relplot(x = "Horas_Esperadas", y = "preco", col = "finalizado" , hue = "finalizado",data = dados)
+
+x = dados [["Horas_Esperadas", "preco"]]
+y = dados ["finalizado"]
+
+SEED = 5
+
+np.random.seed(SEED)
+treino_x, teste_x, treino_y, teste_y = train_test_split(x,y,
+ random_state = SEED, test_size = 0.30, stratify = y)
+
+print(f"Treino: {len(treino_x)} - Teste: {len(teste_x)}")
