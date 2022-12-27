@@ -1,0 +1,358 @@
+// Codigo para sensor de temperatura e umidae com display e buzzer
+
+#include "DHT.h"
+DHT dht(6, DHT11);
+
+#include "OLED_I2C.h"
+OLED  myOLED(SDA, SCL, 8);
+
+extern uint8_t SmallFont[];
+extern uint8_t BigNumbers[];
+
+// // variáveis ​​para temporização e alarme
+byte SEC = 0;
+byte MIN = 0;
+byte HOUR = 0;
+
+byte MIN_A = 1;
+byte HOUR_A = 0;
+unsigned long timer;
+
+//variáveis ​​para leitura de cliques de botão
+
+boolean button1WasUp = true;
+boolean button2WasUp = true;
+boolean button1IsUp;
+boolean button2IsUp;
+
+boolean alarm = true;
+byte w, i;
+//LEDS
+
+const int BOTAO = 5;  // definir constante para entrada (pin de entrada) 
+const int LED = 12;   // definir constante para saída (pin de saída)
+
+int estado = 0;       // definir variavel para o estado (0 => DESLIGADO ; 1 => LIGADO )
+
+//RELES
+//Porta ligada ao pino IN1 do modulo
+int porta_rele1 = 7;
+//Porta ligada ao pino IN2 do modulo
+int porta_rele2 = 8;
+//Porta ligada ao pino IN3 do modulo
+int porta_rele3 = 9;
+
+//BOTÕES
+//Porta ligada ao botao 1
+int porta_botao1 = 2;
+//Porta ligada ao botao 2
+int porta_botao2 = 3;
+//Porta ligada ao botao 3
+int porta_botao3 = 4;
+
+//Armazena o estado do rele - 0 (LOW) ou 1 (HIGH)
+int estadorele1 = 1;
+int estadorele2 = 1;
+int estadorele3 = 1;
+
+//Armazena o valor lido dos botoes
+int leitura1 = 0;
+int leitura2 = 0;
+int leitura3 = 0;
+
+void setup() {
+  
+  pinMode(11, INPUT_PULLUP);   // conectar botões de tato
+  pinMode(13, INPUT_PULLUP);
+ pinMode(10, OUTPUT);               // conecte o alto-falante piezo
+
+  dht.begin();
+  myOLED.begin();
+  timer = millis();
+
+  
+//Leds
+  pinMode(BOTAO,INPUT);   // configurar pin BOTAO como entrada
+  pinMode(LED,OUTPUT);    // configurar pin LED como saída
+  
+  //Define pinos para o rele como saida
+  pinMode(porta_rele1, OUTPUT); 
+  pinMode(porta_rele2, OUTPUT);
+  pinMode(porta_rele3, OUTPUT);
+
+  //Define pinos dos botoes como entrada
+  pinMode(porta_botao1, INPUT); 
+  pinMode(porta_botao2, INPUT);
+  pinMode(porta_botao3, INPUT);
+
+  //Estado inicial dos reles - desligados
+  digitalWrite(porta_rele1, HIGH);
+  digitalWrite(porta_rele2, HIGH);
+  digitalWrite(porta_rele3, HIGH);
+  
+  }
+
+void loop() {
+   int h = dht.readHumidity();
+   int t = dht.readTemperature();
+  
+  // obter o estado atual do botão
+  button1IsUp = digitalRead(11);
+  button2IsUp = digitalRead(13);
+ 
+  // se o botão 1 for pressionado, vá para as configurações (loop while)
+if (button1WasUp && !button1IsUp) {
+    delay(10); button1IsUp = digitalRead(11);
+    if (!button1IsUp) { SEC = 0; w = 1; } }
+  button1WasUp = button1IsUp;
+ 
+  // se o botão 2 foi pressionado desligue o alarme
+  if (button2WasUp && !button2IsUp) {
+    delay(10); button2IsUp = digitalRead(13);
+    if (!button2IsUp) { alarm = !alarm; } }
+  button2WasUp = button2IsUp;
+
+  // se 1000ms se passaram - adicione um segundo
+  if (millis() - timer > 1000) {
+    timer = millis(); SEC++;
+    // se 59 segundos se passaram, adicione 1 minuto
+    if (SEC > 59) { SEC = 0; MIN++; }
+    // se 59 minutos se passaram, adicione 1 hora
+    if (MIN > 59) { MIN = 0; HOUR++; }
+    if (HOUR > 23) { HOUR = 0; }
+
+    // despertar alarme por 1 minuto
+    if (alarm == true && HOUR == HOUR_A && MIN == MIN_A && i < 60) { tone(10, 100); i++; }
+    if (i >= 60) { noTone(10); alarm == false; i = 0; }
+
+    myOLED.clrScr(); // limpar a tela
+    myOLED.setFont(BigNumbers); // conectar fonte para números
+    
+    // imprimir a hora atual
+    if (HOUR < 10) { myOLED.print("0" + String(HOUR) + "-", 8, 20); }
+    if (HOUR >= 10) { myOLED.print(String(HOUR) + "-", 8, 20); }
+    if (MIN < 10) { myOLED.print("0" + String(MIN) + "-", 50, 20); }
+    if (MIN >= 10) { myOLED.print(String(MIN) + "-", 50, 20); }
+    if (SEC < 10) { myOLED.print("0" + String(SEC), 92, 20); }
+    if (SEC >= 10) { myOLED.print(String(SEC), 92, 20); }
+  
+    myOLED.setFont(SmallFont); // adicionar fonte para texto
+    
+    // exibir status de alarme
+    if (alarm == true) { myOLED.print("Alarme Lig ", RIGHT, 3); }
+    if (alarm == false) { myOLED.print("Alarme  Des", RIGHT, 3); }
+    
+    // temperatura e umidade de saída
+    myOLED.print(String(t) + "'/ " + String(h) + "% ", RIGHT, 55);
+    myOLED.update();
+    noTone(10);//5
+  }
+
+  while (w == 1) {
+    myOLED.clrScr();
+ 
+    myOLED.setFont(BigNumbers);
+    if (HOUR > 23) { HOUR = 0; }
+    if (HOUR < 10) { myOLED.print("0" + String(HOUR) + "-", 8, 20); }
+    if (HOUR >= 10) { myOLED.print(String(HOUR) + "-", 8, 20); }
+    if (MIN < 10) { myOLED.print("0" + String(MIN) + "-", 50, 20); }
+    if (MIN >= 10) { myOLED.print(String(MIN) + "-", 50, 20); }
+    myOLED.print("00", 92, 20);
+    
+    myOLED.setFont(SmallFont);
+    if (alarm == true) { myOLED.print("on ", RIGHT, 3); }
+    if (alarm == false) { myOLED.print("off", RIGHT, 3); }
+    myOLED.print("HOUR SETTING", CENTER, 55);
+    myOLED.update();
+
+    button1IsUp = digitalRead(11);
+    button2IsUp = digitalRead(13);
+
+    // se o botão 1 foi pressionado, vá para o loop while 2
+    if (button1WasUp && !button1IsUp) {
+      delay(10); button1IsUp = digitalRead(11);
+     if (!button1IsUp) { w = 2; } }
+    button1WasUp = button1IsUp;
+
+    // se o botão 2 foi pressionado, adicione 1 hora
+    if (button2WasUp && !button2IsUp) {
+      delay(10); button2IsUp = digitalRead(13);
+      if (!button2IsUp) { HOUR++; } }
+    button2WasUp = button2IsUp;
+  }
+
+  while (w == 2) {
+    myOLED.clrScr();
+ 
+    myOLED.setFont(BigNumbers);
+    if (MIN > 59) { MIN = 0;}
+    if (HOUR < 10) { myOLED.print("0" + String(HOUR) + "-", 8, 20); }
+    if (HOUR >= 10) { myOLED.print(String(HOUR) + "-", 8, 20); }
+    if (MIN < 10) { myOLED.print("0" + String(MIN) + "-", 50, 20); }
+    if (MIN >= 10) { myOLED.print(String(MIN) + "-", 50, 20); }
+    myOLED.print("00", 92, 20);
+
+    myOLED.setFont(SmallFont);
+    if (alarm == true) { myOLED.print("on ", RIGHT, 3); }
+    if (alarm == false) { myOLED.print("off", RIGHT, 3); }
+    myOLED.print("MINUTE SETTING", CENTER, 55);
+    myOLED.update();
+
+    button1IsUp = digitalRead(11);
+    button2IsUp = digitalRead(13);
+
+    //se o botão 1 foi pressionado, vá para 3 loop while
+    if (button1WasUp && !button1IsUp) {
+      delay(10); button1IsUp = digitalRead(11);
+      if (!button1IsUp) { w = 3; } }
+    button1WasUp = button1IsUp;
+    // se o botão 2 foi pressionado, adicione 1 minuto
+    if (button2WasUp && !button2IsUp) {
+      delay(10); button2IsUp = digitalRead(13);
+     if (!button2IsUp) { MIN++; } }
+    button2WasUp = button2IsUp;
+ }
+
+  while (w == 3) {
+    myOLED.clrScr();
+ 
+    myOLED.setFont(BigNumbers);
+    if (MIN_A > 59) { MIN_A = 0; HOUR_A++; }
+    if (HOUR_A > 23) { HOUR_A = 0; }
+    if (HOUR_A < 10) { myOLED.print("0" + String(HOUR_A) + "-", 8, 20); }
+    if (HOUR_A >= 10) { myOLED.print(String(HOUR_A) + "-", 8, 20); }
+    if (MIN_A < 10) { myOLED.print("0" + String(MIN_A) + "-", 50, 20); }
+    if (MIN_A >= 10) { myOLED.print(String(MIN_A) + "-", 50, 20); }
+    myOLED.print("00", 92, 20);
+
+    myOLED.setFont(SmallFont);
+    if (alarm == true) { myOLED.print("on ", RIGHT, 3); }
+    if (alarm == false) { myOLED.print("off", RIGHT, 3); }
+    myOLED.print("ALARM SET HOUR", CENTER, 55);
+    myOLED.update();
+ 
+    button1IsUp = digitalRead(11);
+    button2IsUp = digitalRead(13);
+
+     // se o botão 1 foi pressionado, vá para 4 loop while
+    if (button1WasUp && !button1IsUp) {
+     delay(10); button1IsUp = digitalRead(11);
+      if (!button1IsUp) { w = 4; } }
+   button1WasUp = button1IsUp;
+    // se o botão 2 foi pressionado, adicione 1 hora
+    if (button2WasUp && !button2IsUp) {
+      delay(10); button2IsUp = digitalRead(13);
+     if (!button2IsUp) { HOUR_A++; } }
+    button2WasUp = button2IsUp;
+  }
+
+  while (w == 4) {
+    myOLED.clrScr();
+ 
+    myOLED.setFont(BigNumbers);
+    if (MIN_A > 59) { MIN_A = 0; HOUR_A++; }
+    if (HOUR_A > 23) { HOUR_A = 0; }
+    if (HOUR_A < 10) { myOLED.print("0" + String(HOUR_A) + "-", 8, 20); }
+    if (HOUR_A >= 10) { myOLED.print(String(HOUR_A) + "-", 8, 20); }
+    if (MIN_A < 10) { myOLED.print("0" + String(MIN_A) + "-", 50, 20); }
+    if (MIN_A >= 10) { myOLED.print(String(MIN_A) + "-", 50, 20); }
+    myOLED.print("00", 92, 20);
+ 
+    myOLED.setFont(SmallFont); 
+    if (alarm == true) { myOLED.print("on ", RIGHT, 3); }
+    if (alarm == false) { myOLED.print("off", RIGHT, 3); }
+    myOLED.print("ALARM SET MINUTE", CENTER, 55);
+    myOLED.update();
+ 
+    button1IsUp = digitalRead(11);
+    button2IsUp = digitalRead(13);
+
+     // se o botão 1 foi pressionado, sai do loop
+    if (button1WasUp && !button1IsUp) {
+      delay(10); button1IsUp = digitalRead(11);
+      if (!button1IsUp) { w = 0; } }
+    button1WasUp = button1IsUp;
+    // se o botão 2 foi pressionado, adicione 1 minuto
+    if (button2WasUp && !button2IsUp) {
+      delay(10); button2IsUp = digitalRead(13);
+      if (!button2IsUp) { MIN_A++; } }
+    button2WasUp = button2IsUp;
+  }
+////////////////////////////////////////////////////////////////////////////////////
+  //Verifica o acionamento do botao 1
+  leitura1 = digitalRead(porta_botao1);
+
+  if (leitura1 != 0)
+  {
+    while(digitalRead(porta_botao1) != 0)
+    {
+      delay(100);
+    }
+    //Inverte o estado da porta
+    estadorele1 = !estadorele1;
+    //Comandos para o rele 1
+    digitalWrite(porta_rele1, estadorele1);  
+  }  
+   //if (porta_rele1 == HIGH || t > 26) 
+  //{
+    //  digitalWrite(porta_botao1, LOW);
+      //}
+ // else if (estadorele1 == LOW)
+  //{ 
+    //  digitalWrite(porta_botao1, HIGH);
+  //} 
+ //////////////////////////////////////////////////////////////////////////////////// 
+  //Verifica o acionamento do botao 2
+  leitura2 = digitalRead(porta_botao2);
+  if (leitura2 != 0)
+  {
+    while(digitalRead(porta_botao2) != 0)
+    {
+      delay(100);
+    }
+    //Inverte o estado da porta
+    estadorele2 = !estadorele2;
+    //Comandos para o rele 
+    digitalWrite(porta_rele2, estadorele2);  
+  } 
+////////////////////////////////////////////////////////////////////////////////////
+  //Verifica o acionamento do botao 3
+  leitura3 = digitalRead(porta_botao3);
+  if (leitura3 != 0)
+  {
+    while(digitalRead(porta_botao3) != 0)
+    {
+      delay(100);
+    }
+    //Inverte o estado da porta
+    estadorele3 = !estadorele3;
+    //Comandos para o rele 3
+    digitalWrite(porta_rele3, estadorele3);  
+  } 
+   ////////////////////////////////////////////////////////////////////////////////////
+  //LEDS
+// verificar se botao foi premido   
+  
+  if(digitalRead(BOTAO) == HIGH)  // verifica se pin ativo
+  {
+    if (estado == 0){              // se estiver desligado, então passa a ligado
+      estado = 1;
+      Serial.println("LIGADO");    // envia para impressão através das comunicação serial
+    }
+    else{
+      estado = 0;
+      Serial.println("DESLIGADO");    // envia para impressão através das comunicação serial
+    }
+  }
+  
+  // verificar estado do led
+  
+  if (estado == 1)
+    digitalWrite(LED, 1);        // ligar
+  else
+    digitalWrite(LED, 0);        // Desligar
+
+ delay(200);
+
+
+}
