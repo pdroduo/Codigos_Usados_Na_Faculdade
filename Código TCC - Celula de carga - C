@@ -1,0 +1,83 @@
+// Incluindo bibliotecas:
+#include "HX711.h"
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <Pushbutton.h>
+
+// HX711 Celula de carga:
+const int LOADCELL_DOUT_PIN = 2;
+const int LOADCELL_SCK_PIN = 3;
+
+HX711 scale;
+int reading;
+int lastReading;
+
+//Fator de calibração:
+#define CALIBRATION_FACTOR 223.156
+
+//OLED Display
+#define SCREEN_WIDTH 128 // OLED display largura, em pixels
+#define SCREEN_HEIGHT 64 // OLED display altura, em pixels
+
+//Declaração para um monitor SSD1306 conectado a I2C (SDA, pinos SCL)
+#define OLED_RESET     -1 // Pino de reset # (ou -1 se compartilhar o pino de reset do Arduino)
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+#define BUTTON_PIN 4 //Botão
+Pushbutton button(BUTTON_PIN);
+
+void displayWeight(int weight){
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(0, 10);
+// Exibe texto estático
+  display.println("Peso:");
+  display.display();
+  display.setCursor(0, 30);
+  display.setTextSize(2);
+  display.print(weight);
+  display.print(" ");
+  display.print("g");
+  display.display();  
+}
+
+void setup() {
+  Serial.begin(57200);
+
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+    Serial.println(F("Falha na alocação do SSD1306"));
+    for(;;);
+  }
+  delay(2000);
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  
+  Serial.println("Inicializando a escala");
+  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
+
+  scale.set_scale(CALIBRATION_FACTOR);   // this value is obtained by calibrating the scale with known weights
+  scale.tare();               // reset the scale to 0
+}
+
+void loop() {
+  
+  if (button.getSingleDebouncedPress()){
+    Serial.print("Tarando...");
+    scale.tare();
+  }
+  
+  if (scale.wait_ready_timeout(200)) {
+    reading = round(scale.get_units());
+    Serial.print("Peso: ");
+    Serial.println(reading);
+    if (reading != lastReading){
+      displayWeight(reading); 
+    }
+    lastReading = reading;
+  }
+  else {
+    Serial.println("HX711 não funcionando.");
+  }
+}
